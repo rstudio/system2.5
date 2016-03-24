@@ -7,8 +7,8 @@
 #' resultPromise <- system2.5("ls", c(Sys.getenv("HOME"), "baddir"))
 #'
 #' resultPromise$then(function(result) {
-#'   cat(paste(result$stdout, collapse = "\n"), "\n")
-#'   message(paste(result$stderr, collapse = "\n"), "\n")
+#'   cat(paste(readLines(result$stdout, warn = FALSE), collapse = "\n"), "\n")
+#'   message(paste(readLines(result$stderr, warn = FALSE), collapse = "\n"), "\n")
 #'   cat("\nExited with status", result$exitstatus, "\n")
 #' })
 #'
@@ -43,8 +43,10 @@ system2.5 <- function(command, args = character(), input = NULL,
       }
 
       exitstatus <- as.numeric(readLines(file.path(outdir, "exitcode")))
-      stdout <- readLines(file.path(outdir, "job.stdout"))
-      stderr <- readLines(file.path(outdir, "job.stderr"))
+      stdout <- file(file.path(outdir, "job.stdout"), "rb")
+      on.exit(close(stdout), add = TRUE)
+      stderr <- file(file.path(outdir, "job.stderr"), "rb")
+      on.exit(close(stderr), add = TRUE)
 
       on.exit(unlink(outdir, recursive = TRUE), add = TRUE)
       for (callback in callbacks) {
