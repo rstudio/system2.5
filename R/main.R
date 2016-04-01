@@ -6,11 +6,16 @@
 #'
 #' resultPromise <- system2.5("ls", c(Sys.getenv("HOME"), "baddir"))
 #'
-#' resultPromise$then(function(result) {
-#'   cat(paste(readLines(result$stdout, warn = FALSE), collapse = "\n"), "\n")
-#'   message(paste(readLines(result$stderr, warn = FALSE), collapse = "\n"), "\n")
-#'   cat("\nExited with status", result$exitstatus, "\n")
-#' })
+#' resultPromise$then(
+#'   onFulfilled = function(result) {
+#'     cat(paste(readLines(result$stdout, warn = FALSE), collapse = "\n"), "\n")
+#'     message(paste(readLines(result$stderr, warn = FALSE), collapse = "\n"), "\n")
+#'     cat("\nExited with status", result$exitstatus, "\n")
+#'   },
+#'   onRejected = function(reason) {
+#'     message("It failed :(")
+#'   }
+#' )
 #'
 #' Sys.sleep(1)
 #' shiny:::timerCallbacks$executeElapsed()
@@ -26,12 +31,7 @@ system2.5 <- function(command, args = character(), input = NULL,
     stop("Failed to create temp dir for job monitoring")
   }
 
-  callbacks <- NULL
-  result <- list(
-    then = function(cb) {
-      callbacks <<- c(cb, callbacks)
-    }
-  )
+  promise <- Promise$new()
 
   o <- observe({
     if (!file.exists(file.path(outdir, "exitcode"))) {
@@ -49,12 +49,17 @@ system2.5 <- function(command, args = character(), input = NULL,
       on.exit(close(stderr), add = TRUE)
 
       on.exit(unlink(outdir, recursive = TRUE), add = TRUE)
-      for (callback in callbacks) {
-        callback(list(
-          exitstatus = exitstatus,
-          stdout = stdout,
-          stderr = stderr
-        ))
+
+      result <- list(
+        exitstatus = exitstatus,
+        stdout = stdout,
+        stderr = stderr
+      )
+
+      if (exitstatus == 0) {
+        promise$resolve(result)
+      } else {
+        promise$reject(result)
       }
     }
   })
@@ -67,5 +72,5 @@ system2.5 <- function(command, args = character(), input = NULL,
     wait = FALSE
   )
 
-  result
+  promise
 }

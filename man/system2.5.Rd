@@ -14,11 +14,16 @@ Like system2(wait=FALSE), but gives you a way to get the exit code.
 
 resultPromise <- system2.5("ls", c(Sys.getenv("HOME"), "baddir"))
 
-resultPromise$then(function(result) {
-  cat(paste(result$stdout, collapse = "\\n"), "\\n")
-  message(paste(result$stderr, collapse = "\\n"), "\\n")
-  cat("\\nExited with status", result$exitstatus, "\\n")
-})
+resultPromise$then(
+  onFulfilled = function(result) {
+    cat(paste(readLines(result$stdout, warn = FALSE), collapse = "\\n"), "\\n")
+    message(paste(readLines(result$stderr, warn = FALSE), collapse = "\\n"), "\\n")
+    cat("\\nExited with status", result$exitstatus, "\\n")
+  },
+  onRejected = function(reason) {
+    message("It failed :(")
+  }
+)
 
 Sys.sleep(1)
 shiny:::timerCallbacks$executeElapsed()
