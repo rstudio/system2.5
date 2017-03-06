@@ -1,8 +1,8 @@
 # Violates: 2.2.4. onFulfilled or onRejected must not be called until the
 # execution context stack contains only platform code. [3.1].
 
-#' @import R6
 #' @export
+#' @import R6
 Promise <- R6::R6Class("Promise",
   private = list(
     state = "pending",
@@ -80,6 +80,12 @@ Promise <- R6::R6Class("Promise",
     then = function(onFulfilled = identity, onRejected = stop) {
       promise2 <- Promise$new()
 
+      res <- promiseDomain$onThen(onFulfilled, onRejected)
+      if (!is.null(res)) {
+        onFulfilled <- res$onFulfilled
+        onRejected <- res$onRejected
+      }
+
       handleIt <- function(func, value) {
         tryCatch(
           {
@@ -112,9 +118,49 @@ Promise <- R6::R6Class("Promise",
       }
 
       invisible(promise2)
+    },
+    catch = function(onRejected) {
+      self$then(onRejected = onRejected)
     }
   )
 )
+
+PromiseDomain <- R6::R6Class("PromiseDomain",
+  private = list(
+  ),
+  public = list(
+    onThen = function(onFulfilled, onRejected) {
+      NULL
+    }
+  )
+)
+
+#' @include stack.R
+promiseDomains <- Stack$new()
+promiseDomain <- list(
+  onThen = function(onFulfilled, onRejected) {
+    if (promiseDomains$size() == 0) {
+      return()
+    }
+    pd <- promiseDomains$peek()
+    pd$onThen(onFulfilled, onRejected)
+  }
+)
+
+#' @export
+withPromiseDomain <- function(domain, expr) {
+  promiseDomains$push(domain)
+  on.exit(promiseDomains$pop())
+
+  force(expr)
+}
+
+#' @export
+fmap.Promise <- function(.m, .f, ...) {
+  .m$then(function(val) {
+    .f(val, ...)
+  })
+}
 
 # p <- Promise$new()
 # p$then(function(val) { print(val) })

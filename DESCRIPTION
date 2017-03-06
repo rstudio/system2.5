@@ -7,5 +7,10 @@ Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: More about what it does (maybe more than one line)
 License: What license is it under?
 Import: shiny, R6
+Suggests: testthat
 LazyData: TRUE
 RoxygenNote: 5.0.1
+Collate:
+    'main.R'
+    'stack.R'
+    'promise.R'
