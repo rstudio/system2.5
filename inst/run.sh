@@ -12,6 +12,8 @@ mv "$OUTDIR/ppid.tmp" "$OUTDIR/ppid"
 PROG="$1"
 shift
 
+echo "$@" >&2
+
 # Run the program in the background, with stdout/stderr redirected.
 # We have to run in the background so that we can save the PID to
 # a file right away.

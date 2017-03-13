@@ -44,6 +44,8 @@ system2.5 <- function(command, args = character(), input = NULL,
 
       exitstatus <- as.numeric(readLines(file.path(outdir, "exitcode")))
       stdout <- file(file.path(outdir, "job.stdout"), "rb")
+      # TODO: These close()es will have to change to maybe finalizer based
+      # once promise callbacks are called asynchronously
       on.exit(close(stdout), add = TRUE)
       stderr <- file(file.path(outdir, "job.stderr"), "rb")
       on.exit(close(stderr), add = TRUE)
@@ -73,4 +75,55 @@ system2.5 <- function(command, args = character(), input = NULL,
   )
 
   promise
+}
+
+#' @export
+forkinvoke <- function(expr, ...) {
+  info <- list(
+    func = shiny::exprToFunction(expr),
+    options = options(),
+    search = search(),
+    args = list(...)
+  )
+
+  rdspath <- tempfile(fileext = ".rds")
+  saveRDS(info, rdspath, compress = FALSE)
+
+  p <- system2.5(
+    "R", # TODO: Make this the current R
+    c(
+      "--slave",
+      "--no-restore",
+      "-e",
+      # TODO: better escape
+      paste0("system2.5:::doinvoke\\(\\'", rdspath, "\\'\\)")
+    )
+  )
+
+  p$then(
+    onFulfilled = function(result) {
+      on.exit(unlink(rdspath))
+
+      if (result$exitstatus) {
+        # Command failed
+        stop("Command failed, ",
+          paste(readLines(result$stderr, warn=FALSE), collapse="\n")
+        )
+      }
+
+      readRDS(rdspath)
+    },
+    onRejected = function(result) {
+      msg <- paste(readLines(result$stderr, warn=FALSE), collapse="\n")
+      stop(msg)
+    }
+  )
+}
+
+doinvoke <- function(path) {
+  info <- readRDS(path)
+
+  result <- info$func()
+
+  saveRDS(result, path, compress = FALSE)
 }

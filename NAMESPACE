@@ -2,6 +2,7 @@
 
 export(Promise)
 export(fmap.Promise)
+export(forkinvoke)
 export(system2.5)
 export(withPromiseDomain)
 import(R6)

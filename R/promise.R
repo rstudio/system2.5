@@ -65,8 +65,17 @@ Promise <- R6::R6Class("Promise",
         return(invisible())
       private$publicResolveRejectCalled <- TRUE
 
-      private$doResolve(value)
-      invisible()
+      tryCatch(
+        {
+          force(value)
+          private$doResolve(value)
+        },
+        error = function(err) {
+          private$doReject(err)
+        }
+      )
+
+      invisible(self)
     },
     reject = function(reason) {
       # Only allow this to be called once, then no-op.
@@ -75,7 +84,7 @@ Promise <- R6::R6Class("Promise",
       private$publicResolveRejectCalled <- TRUE
 
       private$doReject(reason)
-      invisible()
+      invisible(self)
     },
     then = function(onFulfilled = identity, onRejected = stop) {
       promise2 <- Promise$new()
@@ -121,6 +130,18 @@ Promise <- R6::R6Class("Promise",
     },
     catch = function(onRejected) {
       self$then(onRejected = onRejected)
+    },
+    finally = function(onFinally) {
+      self$then(
+        onFulfilled = function(value) {
+          onFinally()
+          value
+        },
+        onRejected = function(reason) {
+          onFinally()
+          stop(reason)
+        }
+      )
     }
   )
 )
@@ -141,9 +162,14 @@ promiseDomain <- list(
   onThen = function(onFulfilled, onRejected) {
     if (promiseDomains$size() == 0) {
       return()
+    } else if (promiseDomains$size() == 1) {
+      return(promiseDomains$peek()$onThen(onFulfilled, onRejected))
+    } else {
+      state <- list(onFulfilled = onFulfilled, onRejected = onRejected)
+      for (pd in promiseDomains$as_list())
+        state <- pd$onThen(state$onFulfilled, state$onRejected)
+      state
     }
-    pd <- promiseDomains$peek()
-    pd$onThen(onFulfilled, onRejected)
   }
 )
 
