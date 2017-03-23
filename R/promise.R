@@ -86,7 +86,7 @@ Promise <- R6::R6Class("Promise",
         }
       )
 
-      invisible(self)
+      invisible()
     },
     reject = function(reason) {
       # Only allow this to be called once, then no-op.
@@ -94,8 +94,20 @@ Promise <- R6::R6Class("Promise",
         return(invisible())
       private$publicResolveRejectCalled <- TRUE
 
-      private$doReject(reason)
-      invisible(self)
+      tryCatch(
+        {
+          force(reason)
+          if (is.character(reason)) {
+            reason <- simpleError(reason)
+          }
+          private$doReject(reason)
+        },
+        error = function(err) {
+          private$doReject(err)
+        }
+      )
+
+      invisible()
     },
     then = function(onFulfilled = identity, onRejected = stop) {
       promise2 <- new_promise(function(resolve, reject) {
