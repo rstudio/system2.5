@@ -173,7 +173,17 @@ Promise <- R6::R6Class("Promise",
 new_promise <- function(actionFunc) {
   p <- Promise$new()
 
-  actionFunc(p$resolve, p$reject)
+  tryCatch(
+    actionFunc(p$resolve, p$reject),
+    error = function(e) {
+      if (p$status() == "pending") {
+        p$reject(e)
+      } else {
+        # Too late to do anything useful. Just notify.
+        warning(e)
+      }
+    }
+  )
   structure(
     list(
       then = p$then,
