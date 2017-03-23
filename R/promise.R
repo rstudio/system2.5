@@ -210,6 +210,13 @@ resolved <- function(value) {
 }
 
 #' @export
+rejected <- function(reason) {
+  new_promise(function(resolve, reject) {
+    reject(reason)
+  })
+}
+
+#' @export
 then <- function(promise, onFulfilled = NULL, onRejected = NULL) {
   promise$then(onFulfilled = onFulfilled, onRejected = onRejected)
 }
