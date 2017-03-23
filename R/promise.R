@@ -1,4 +1,3 @@
-#' @export
 #' @import R6
 Promise <- R6::R6Class("Promise",
   private = list(
