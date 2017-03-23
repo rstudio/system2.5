@@ -1,6 +1,3 @@
-# Violates: 2.2.4. onFulfilled or onRejected must not be called until the
-# execution context stack contains only platform code. [3.1].
-
 #' @export
 #' @import R6
 Promise <- R6::R6Class("Promise",
