@@ -30,4 +30,3 @@ shiny:::timerCallbacks$executeElapsed()
 shiny:::flushReact()
 
 }
-

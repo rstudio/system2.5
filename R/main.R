@@ -31,50 +31,51 @@ system2.5 <- function(command, args = character(), input = NULL,
     stop("Failed to create temp dir for job monitoring")
   }
 
-  promise <- Promise$new()
+  run <- function(resolve, reject) {
 
-  o <- observe({
-    if (!file.exists(file.path(outdir, "exitcode"))) {
-      invalidateLater(250, NULL)
-    } else {
-      o$destroy()
-      if (nchar(outdir) < nchar(tempdir())) {
-        stop("assertion failed")
-      }
-
-      exitstatus <- as.numeric(readLines(file.path(outdir, "exitcode")))
-      stdout <- file(file.path(outdir, "job.stdout"), "rb")
-      # TODO: These close()es will have to change to maybe finalizer based
-      # once promise callbacks are called asynchronously
-      on.exit(close(stdout), add = TRUE)
-      stderr <- file(file.path(outdir, "job.stderr"), "rb")
-      on.exit(close(stderr), add = TRUE)
-
-      on.exit(unlink(outdir, recursive = TRUE), add = TRUE)
-
-      result <- list(
-        exitstatus = exitstatus,
-        stdout = stdout,
-        stderr = stderr
-      )
-
-      if (exitstatus == 0) {
-        promise$resolve(result)
+    o <- observe({
+      if (!file.exists(file.path(outdir, "exitcode"))) {
+        invalidateLater(250, NULL)
       } else {
-        promise$reject(result)
+        o$destroy()
+        if (nchar(outdir) < nchar(tempdir())) {
+          stop("assertion failed")
+        }
+
+        exitstatus <- as.numeric(readLines(file.path(outdir, "exitcode")))
+        stdout <- file(file.path(outdir, "job.stdout"), "rb")
+        # TODO: These close()es will have to change to maybe finalizer based
+        # once promise callbacks are called asynchronously
+        on.exit(close(stdout), add = TRUE)
+        stderr <- file(file.path(outdir, "job.stderr"), "rb")
+        on.exit(close(stderr), add = TRUE)
+
+        on.exit(unlink(outdir, recursive = TRUE), add = TRUE)
+
+        result <- list(
+          exitstatus = exitstatus,
+          stdout = stdout,
+          stderr = stderr
+        )
+
+        if (exitstatus == 0) {
+          resolve(result)
+        } else {
+          reject(result)
+        }
       }
-    }
-  })
+    })
 
-  system2(
-    system.file("run.sh", package = "system2.5"),
-    args = c(outdir, command, args),
-    input = input,
-    env = env,
-    wait = FALSE
-  )
+    system2(
+      system.file("run.sh", package = "system2.5"),
+      args = c(outdir, command, args),
+      input = input,
+      env = env,
+      wait = FALSE
+    )
+  }
 
-  promise
+  new_promise(run)
 }
 
 #' @export
@@ -100,7 +101,7 @@ forkinvoke <- function(expr, ...) {
     )
   )
 
-  p$then(
+  then(p,
     onFulfilled = function(result) {
       on.exit(unlink(rdspath))
 
