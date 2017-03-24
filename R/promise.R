@@ -177,12 +177,68 @@ Promise <- R6::R6Class("Promise",
   )
 )
 
+#' Create a new promise object
+#'
+#' \code{new_promise} creates a new promise. A promise is a placeholder object
+#' for the eventual result (or error) of an asynchronous operation. This
+#' function is not generally needed to carry out asynchronous programming tasks;
+#' instead, it is intended to be used mostly by package authors who want to
+#' write asynchronous functions that return promises.
+#'
+#' The \code{action} function/formula should be a piece of code that returns
+#' quickly, but initiates a potentially long-running, asynchronous task. If/when
+#' the task successfully completes, call \code{resolve(value)} where
+#' \code{value} is the result of the computation (like the return value). If the
+#' task fails, call \code{reject(reason)}, where \code{reason} is either an
+#' error object, or a character string.
+#'
+#' It's important that asynchronous tasks kicked off from \code{action} be coded
+#' very carefully--in particular, all errors must be caught and passed to
+#' \code{reject()}. Failure to do so will cause those errors to be lost, at
+#' best; and the caller of the asynchronous task will never receive a response
+#' (the asynchronous equivalent of a function call that never returns, i.e.
+#' hangs).
+#'
+#' The return value of \code{action} will be ignored.
+#'
+#' @param action Either a function with signature \code{function(resolve,
+#'   reject)}, or a one-sided formula. See Details.
+#'
+#' @return A promise object (see \link{\code{then}}).
+#'
+#' @examples
+#' TODO
+#'
 #' @export
-new_promise <- function(actionFunc) {
+new_promise <- function(action) {
+  if (inherits(action, "formula")) {
+    if (length(action) != 2) {
+      stop("'action' must be a function or one-sided formula")
+    }
+  } else if (is.function(action)) {
+    if (length(formals(action)) != 2) {
+      stop("'action' function must have two arguments")
+    }
+  } else {
+    stop("Invalid action argument--must be a function or formula")
+  }
+
   p <- Promise$new()
 
   tryCatch(
-    actionFunc(p$resolve, p$reject),
+    {
+      if (is.function(action)) {
+        action(p$resolve, p$reject)
+      } else if (inherits(action, "formula")) {
+        eval(action[[2]], list(
+          resolve = p$resolve,
+          reject = p$reject,
+          return = function(value) {
+            warning("Can't return a value from a promise, use resolve/reject")
+          }
+        ), environment(action))
+      }
+    },
     error = function(e) {
       if (p$status() == "pending") {
         p$reject(e)
@@ -202,6 +258,19 @@ new_promise <- function(actionFunc) {
   )
 }
 
+#' @keywords internal
+#' @export
+resolve <- function(value) {
+  stop("resolve() must be called from within a promise constructor")
+}
+
+#' @keywords internal
+#' @export
+reject <- function(value) {
+  stop("reject() must be called from within a promise constructor")
+}
+
+#' @rdname new_promise
 #' @export
 resolved <- function(value) {
   new_promise(function(resolve, reject) {
@@ -209,6 +278,7 @@ resolved <- function(value) {
   })
 }
 
+#' @rdname new_promise
 #' @export
 rejected <- function(reason) {
   new_promise(function(resolve, reject) {
