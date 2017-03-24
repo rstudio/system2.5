@@ -40,8 +40,8 @@ describe("2.1.3. When rejected, a promise", {
   })
 
   it("2.1.3.2. must have a reason, which must not change", {
-    expect_identical(p$.__enclos_env__$private$value, "error")
+    expect_identical(p$.__enclos_env__$private$value, simpleError("error"))
     p$reject("nope")
-    expect_identical(p$.__enclos_env__$private$value, "error")
+    expect_identical(p$.__enclos_env__$private$value, simpleError("error"))
   })
 })
